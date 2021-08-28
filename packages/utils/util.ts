@@ -1,11 +1,11 @@
-import type { Ref } from 'vue'
 import { getCurrentInstance } from 'vue'
-
-import { camelize, capitalize, extend, hasOwn, hyphenate, isArray, isObject, isString, looseEqual, toRawType } from '@vue/shared'
-
+import { camelize, capitalize, extend, hasOwn, hyphenate, isArray, isObject, isString, isFunction, looseEqual, toRawType } from '@vue/shared'
+import isEqualWith from 'lodash/isEqualWith'
 import isServer from './isServer'
-import type { AnyFunction } from './types'
 import { warn } from './error'
+
+import type { ComponentPublicInstance, CSSProperties, Ref } from 'vue'
+import type { AnyFunction, TimeoutHandle, Hash, Nullable } from './types'
 
 // type polyfill for compat isIE method
 declare global {
@@ -15,8 +15,6 @@ declare global {
 }
 
 export const SCOPE = 'Util'
-
-export type PartialCSSStyleDeclaration = Partial<Pick<CSSStyleDeclaration, 'transform' | 'transition' | 'animation'>>
 
 export function toObject<T>(arr: Array<T>): Record<string, T> {
   const res = {}
@@ -28,7 +26,7 @@ export function toObject<T>(arr: Array<T>): Record<string, T> {
   return res
 }
 
-export const getValueByPath = (obj: any, paths = ''): unknown => {
+export const getValueByPath = (obj, paths = ''): unknown => {
   let ret: unknown = obj
   paths.split('.').map(path => {
     ret = ret?.[path]
@@ -102,8 +100,8 @@ export const isFirefox = function (): boolean {
 }
 
 export const autoprefixer = function (
-  style: PartialCSSStyleDeclaration,
-): PartialCSSStyleDeclaration {
+  style: CSSProperties,
+): CSSProperties {
   const rules = ['transform', 'transition', 'animation']
   const prefixes = ['ms-', 'webkit-']
   rules.forEach(rule => {
@@ -189,10 +187,10 @@ export const arrayFindIndex = function <T = any>(
   return arr.findIndex(pred)
 }
 
-export const arrayFind = function <T = any>(
+export const arrayFind = function <T>(
   arr: Array<T>,
   pred: (args: T) => boolean,
-): any {
+): T {
   return arr.find(pred)
 }
 
@@ -236,3 +234,31 @@ export function addUnit(value: string | number) {
   }
   return ''
 }
+
+/**
+ * Enhance `lodash.isEqual` for it always return false even two functions have completely same statements.
+ * @param obj The value to compare
+ * @param other The other value to compare
+ * @returns Returns `true` if the values are equivalent, else `false`.
+ * @example
+ *  lodash.isEqual(() => 1, () => 1)      // false
+ *  isEqualWith(() => 1, () => 1)         // true
+ */
+export function isEqualWithFunction (obj: any, other: any) {
+  return isEqualWith(obj, other, (objVal, otherVal) => {
+    return isFunction(objVal) && isFunction(otherVal) ? `${objVal}` === `${otherVal}` : undefined
+  })
+}
+
+/**
+ * Generate function for attach ref for the h renderer
+ * @param ref Ref<HTMLElement | ComponentPublicInstance>
+ * @returns (val: T) => void
+ */
+
+export const refAttacher =
+  <T extends (HTMLElement | ComponentPublicInstance)>(ref: Ref<T>) => {
+    return (val: T) => {
+      ref.value = val
+    }
+  }
